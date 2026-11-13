@@ -1,0 +1,422 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isVerifiedUser() && request.auth.uid == uid;
+    }
+
+    function isStr(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isStringList(val, maxItems) {
+      return val is list && val.size() <= maxItems && (val.size() == 0 || val[0] is string);
+    }
+
+    function isIntList(val, maxItems) {
+      return val is list && val.size() <= maxItems && (val.size() == 0 || val[0] is int);
+    }
+
+    function isMapList(val, maxItems) {
+      return val is list && val.size() <= maxItems && (val.size() == 0 || val[0] is map);
+    }
+
+    function isValidUserSettings(data, userId) {
+      return data.keys().hasAll([
+        'ownerId', 'send_start_hour', 'send_end_hour', 'send_weekdays_only',
+        'time_zone', 'auto_close_days', 'ai_context', 'default_signature',
+        'default_follow_up_delays', 'default_behavior', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'send_start_hour', 'send_end_hour', 'send_weekdays_only',
+        'time_zone', 'auto_close_days', 'ai_context', 'default_signature',
+        'default_follow_up_delays', 'default_behavior', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == userId &&
+      data.ownerId == request.auth.uid &&
+      data.send_start_hour is int && data.send_start_hour >= 0 && data.send_start_hour <= 23 &&
+      data.send_end_hour is int && data.send_end_hour >= 1 && data.send_end_hour <= 24 &&
+      data.send_weekdays_only is bool &&
+      isStr(data.time_zone, 1, 80) &&
+      data.auto_close_days is int && data.auto_close_days >= 1 && data.auto_close_days <= 365 &&
+      isStr(data.ai_context, 0, 2000) &&
+      isStr(data.default_signature, 0, 1500) &&
+      isIntList(data.default_follow_up_delays, 8) &&
+      data.default_behavior is map;
+    }
+
+    function isValidAccount(data) {
+      return data.keys().hasAll([
+        'ownerId', 'email', 'display_name', 'provider', 'provider_label',
+        'smtp_host', 'smtp_port', 'imap_host', 'imap_port',
+        'daily_limit', 'warmup_enabled', 'warmup_daily_cap', 'sent_today',
+        'sent_today_date', 'signature', 'status', 'has_credentials',
+        'last_synced_at', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'email', 'display_name', 'provider', 'provider_label',
+        'smtp_host', 'smtp_port', 'imap_host', 'imap_port',
+        'daily_limit', 'warmup_enabled', 'warmup_daily_cap', 'sent_today',
+        'sent_today_date', 'signature', 'status', 'has_credentials',
+        'last_synced_at', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.email, 3, 254) &&
+      isStr(data.display_name, 0, 120) &&
+      (data.provider == 'gmail_api' || data.provider == 'smtp') &&
+      isStr(data.provider_label, 0, 40) &&
+      isStr(data.smtp_host, 0, 255) &&
+      data.smtp_port is int && data.smtp_port >= 0 && data.smtp_port <= 65535 &&
+      isStr(data.imap_host, 0, 255) &&
+      data.imap_port is int && data.imap_port >= 0 && data.imap_port <= 65535 &&
+      data.daily_limit is int && data.daily_limit >= 1 && data.daily_limit <= 2000 &&
+      data.warmup_enabled is bool &&
+      data.warmup_daily_cap is int && data.warmup_daily_cap >= 1 && data.warmup_daily_cap <= 1000 &&
+      data.sent_today is int && data.sent_today >= 0 && data.sent_today <= 5000 &&
+      isStr(data.sent_today_date, 0, 16) &&
+      isStr(data.signature, 0, 1500) &&
+      (data.status == 'active' || data.status == 'paused' || data.status == 'error') &&
+      data.has_credentials is bool &&
+      isStr(data.last_synced_at, 0, 40);
+    }
+
+    function isValidCampaign(data) {
+      return data.keys().hasAll([
+        'ownerId', 'name', 'status', 'account_ids', 'subject', 'body',
+        'attachments', 'follow_ups', 'daily_limit', 'sent_today',
+        'sent_today_date', 'behavior', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'name', 'status', 'account_ids', 'subject', 'body',
+        'attachments', 'follow_ups', 'daily_limit', 'sent_today',
+        'sent_today_date', 'behavior', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.name, 1, 160) &&
+      (data.status == 'draft' || data.status == 'running' || data.status == 'paused' || data.status == 'completed') &&
+      isStringList(data.account_ids, 25) &&
+      isStr(data.subject, 0, 300) &&
+      isStr(data.body, 0, 15000) &&
+      isMapList(data.attachments, 20) &&
+      isMapList(data.follow_ups, 8) &&
+      data.daily_limit is int && data.daily_limit >= 1 && data.daily_limit <= 5000 &&
+      data.sent_today is int && data.sent_today >= 0 && data.sent_today <= 10000 &&
+      isStr(data.sent_today_date, 0, 16) &&
+      data.behavior is map;
+    }
+
+    function isValidLead(data) {
+      return data.keys().hasAll([
+        'ownerId', 'email', 'first_name', 'last_name', 'company',
+        'designation', 'industry', 'tags', 'status', 'email_check',
+        'email_check_reason', 'email_checked_at', 'ai_line', 'custom_fields',
+        'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'email', 'first_name', 'last_name', 'company',
+        'designation', 'industry', 'tags', 'status', 'email_check',
+        'email_check_reason', 'email_checked_at', 'ai_line', 'custom_fields',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.email, 3, 254) &&
+      isStr(data.first_name, 0, 100) &&
+      isStr(data.last_name, 0, 100) &&
+      isStr(data.company, 0, 160) &&
+      isStr(data.designation, 0, 160) &&
+      isStr(data.industry, 0, 120) &&
+      isStringList(data.tags, 20) &&
+      (data.status in ['new', 'contacted', 'replied', 'interested', 'not_interested', 'bounced', 'unsubscribed']) &&
+      (data.email_check in ['valid', 'risky', 'invalid', 'unchecked']) &&
+      isStr(data.email_check_reason, 0, 240) &&
+      isStr(data.email_checked_at, 0, 40) &&
+      isStr(data.ai_line, 0, 600) &&
+      data.custom_fields is map;
+    }
+
+    function isValidCampaignLead(data) {
+      return data.keys().hasAll([
+        'ownerId', 'campaign_id', 'lead_id', 'account_id', 'current_step',
+        'status', 'last_sent_at', 'next_send_at', 'sequence_stopped_at',
+        'stop_reason', 'error', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'campaign_id', 'lead_id', 'account_id', 'current_step',
+        'status', 'last_sent_at', 'next_send_at', 'sequence_stopped_at',
+        'stop_reason', 'error', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.campaign_id, 1, 128) &&
+      isStr(data.lead_id, 1, 128) &&
+      isStr(data.account_id, 0, 128) &&
+      data.current_step is int && data.current_step >= 0 && data.current_step <= 99 &&
+      (data.status in ['pending', 'active', 'replied', 'completed', 'bounced', 'unsubscribed', 'paused']) &&
+      isStr(data.last_sent_at, 0, 40) &&
+      isStr(data.next_send_at, 0, 40) &&
+      isStr(data.sequence_stopped_at, 0, 40) &&
+      isStr(data.stop_reason, 0, 120) &&
+      isStr(data.error, 0, 500);
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll([
+        'ownerId', 'thread_id', 'campaign_id', 'lead_id', 'account_id',
+        'direction', 'step', 'is_manual', 'from_email', 'to_email',
+        'subject', 'body', 'attachments', 'message_id_header',
+        'in_reply_to', 'category', 'sent_at_iso', 'createdAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'thread_id', 'campaign_id', 'lead_id', 'account_id',
+        'direction', 'step', 'is_manual', 'from_email', 'to_email',
+        'subject', 'body', 'attachments', 'message_id_header',
+        'in_reply_to', 'category', 'sent_at_iso', 'createdAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.thread_id, 1, 128) &&
+      isStr(data.campaign_id, 0, 128) &&
+      isStr(data.lead_id, 1, 128) &&
+      isStr(data.account_id, 1, 128) &&
+      (data.direction == 'outbound' || data.direction == 'inbound') &&
+      data.step is int && data.step >= 0 && data.step <= 99 &&
+      data.is_manual is bool &&
+      isStr(data.from_email, 3, 254) &&
+      isStr(data.to_email, 3, 254) &&
+      isStr(data.subject, 0, 400) &&
+      isStr(data.body, 0, 25000) &&
+      isMapList(data.attachments, 20) &&
+      isStr(data.message_id_header, 0, 255) &&
+      isStr(data.in_reply_to, 0, 255) &&
+      isStr(data.category, 0, 60) &&
+      isStr(data.sent_at_iso, 1, 40);
+    }
+
+    function isValidConversation(data) {
+      return data.keys().hasAll([
+        'ownerId', 'thread_id', 'lead_id', 'campaign_id', 'account_id',
+        'status', 'last_message_at', 'closed_at', 'auto_closed', 'unread',
+        'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'thread_id', 'lead_id', 'campaign_id', 'account_id',
+        'status', 'last_message_at', 'closed_at', 'auto_closed', 'unread',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.thread_id, 1, 128) &&
+      isStr(data.lead_id, 1, 128) &&
+      isStr(data.campaign_id, 0, 128) &&
+      isStr(data.account_id, 1, 128) &&
+      (data.status == 'open' || data.status == 'closed') &&
+      isStr(data.last_message_at, 1, 40) &&
+      isStr(data.closed_at, 0, 40) &&
+      data.auto_closed is bool &&
+      data.unread is bool;
+    }
+
+    function isValidTemplate(data) {
+      return data.keys().hasAll([
+        'ownerId', 'name', 'kind', 'subject', 'body', 'tags', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'name', 'kind', 'subject', 'body', 'tags', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.name, 1, 140) &&
+      (data.kind in ['email', 'follow_up', 'reply']) &&
+      isStr(data.subject, 0, 300) &&
+      isStr(data.body, 1, 15000) &&
+      isStringList(data.tags, 20);
+    }
+
+    function isValidSuppression(data) {
+      return data.keys().hasAll([
+        'ownerId', 'email', 'reason', 'source', 'createdAt'
+      ]) && data.keys().hasOnly([
+        'ownerId', 'email', 'reason', 'source', 'createdAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      isStr(data.email, 3, 254) &&
+      (data.reason in ['unsubscribed', 'bounced', 'manual']) &&
+      isStr(data.source, 0, 200);
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow create: if isValidId(userId) && isOwner(userId) &&
+        isValidUserSettings(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) && isOwner(userId) &&
+        isValidUserSettings(incoming(), userId) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'send_start_hour', 'send_end_hour', 'send_weekdays_only', 'time_zone',
+          'auto_close_days', 'ai_context', 'default_signature',
+          'default_follow_up_delays', 'default_behavior', 'updatedAt'
+        ]);
+      allow delete: if isValidId(userId) && isOwner(userId);
+    }
+
+    match /accounts/{accountId} {
+      allow get: if isValidId(accountId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(accountId) && isVerifiedUser() &&
+        isValidAccount(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(accountId) && isOwner(existing().ownerId) &&
+        isValidAccount(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'display_name', 'daily_limit', 'warmup_enabled', 'warmup_daily_cap',
+          'sent_today', 'sent_today_date', 'signature', 'status',
+          'has_credentials', 'last_synced_at', 'updatedAt'
+        ]);
+      allow delete: if isValidId(accountId) && isOwner(existing().ownerId);
+    }
+
+    match /campaigns/{campaignId} {
+      allow get: if isValidId(campaignId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(campaignId) && isVerifiedUser() &&
+        isValidCampaign(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(campaignId) && isOwner(existing().ownerId) &&
+        isValidCampaign(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'status', 'account_ids', 'subject', 'body', 'attachments',
+          'follow_ups', 'daily_limit', 'sent_today', 'sent_today_date',
+          'behavior', 'updatedAt'
+        ]);
+      allow delete: if isValidId(campaignId) && isOwner(existing().ownerId);
+    }
+
+    match /leads/{leadId} {
+      allow get: if isValidId(leadId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(leadId) && isVerifiedUser() &&
+        isValidLead(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(leadId) && isOwner(existing().ownerId) &&
+        isValidLead(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'first_name', 'last_name', 'company', 'designation', 'industry',
+          'tags', 'status', 'email_check', 'email_check_reason',
+          'email_checked_at', 'ai_line', 'custom_fields', 'updatedAt'
+        ]);
+      allow delete: if isValidId(leadId) && isOwner(existing().ownerId);
+    }
+
+    match /campaign_leads/{enrollmentId} {
+      allow get: if isValidId(enrollmentId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(enrollmentId) && isVerifiedUser() &&
+        isValidCampaignLead(incoming()) &&
+        exists(/databases/$(database)/documents/campaigns/$(incoming().campaign_id)) &&
+        get(/databases/$(database)/documents/campaigns/$(incoming().campaign_id)).data.ownerId == request.auth.uid &&
+        exists(/databases/$(database)/documents/leads/$(incoming().lead_id)) &&
+        get(/databases/$(database)/documents/leads/$(incoming().lead_id)).data.ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(enrollmentId) && isOwner(existing().ownerId) &&
+        isValidCampaignLead(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().campaign_id == existing().campaign_id &&
+        incoming().lead_id == existing().lead_id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'account_id', 'current_step', 'status', 'last_sent_at',
+          'next_send_at', 'sequence_stopped_at', 'stop_reason', 'error', 'updatedAt'
+        ]);
+      allow delete: if isValidId(enrollmentId) && isOwner(existing().ownerId);
+    }
+
+    match /messages/{messageId} {
+      allow get: if isValidId(messageId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(messageId) && isVerifiedUser() &&
+        isValidMessage(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(messageId) && isOwner(existing().ownerId);
+    }
+
+    match /conversations/{threadId} {
+      allow get: if isValidId(threadId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(threadId) && isVerifiedUser() &&
+        isValidConversation(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(threadId) && isOwner(existing().ownerId) &&
+        isValidConversation(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().thread_id == existing().thread_id &&
+        incoming().lead_id == existing().lead_id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'last_message_at', 'closed_at', 'auto_closed', 'unread', 'updatedAt'
+        ]);
+      allow delete: if isValidId(threadId) && isOwner(existing().ownerId);
+    }
+
+    match /templates/{templateId} {
+      allow get: if isValidId(templateId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(templateId) && isVerifiedUser() &&
+        isValidTemplate(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(templateId) && isOwner(existing().ownerId) &&
+        isValidTemplate(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'kind', 'subject', 'body', 'tags', 'updatedAt'
+        ]);
+      allow delete: if isValidId(templateId) && isOwner(existing().ownerId);
+    }
+
+    match /suppressions/{suppressionId} {
+      allow get: if isValidId(suppressionId) && isOwner(existing().ownerId);
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+      allow create: if isValidId(suppressionId) && isVerifiedUser() &&
+        isValidSuppression(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(suppressionId) && isOwner(existing().ownerId);
+    }
+  }
+}

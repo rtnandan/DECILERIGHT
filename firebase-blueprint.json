@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Per-user outreach schedule, signature, and automation defaults.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "send_start_hour": { "type": "integer" },
+        "send_end_hour": { "type": "integer" },
+        "send_weekdays_only": { "type": "boolean" },
+        "time_zone": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "auto_close_days": { "type": "integer" },
+        "ai_context": { "type": "string", "maxLength": 2000 },
+        "default_signature": { "type": "string", "maxLength": 1500 },
+        "default_follow_up_delays": { "type": "array" },
+        "default_behavior": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "send_start_hour", "send_end_hour", "send_weekdays_only", "time_zone", "auto_close_days", "createdAt", "updatedAt"]
+    },
+    "SendingAccount": {
+      "title": "SendingAccount",
+      "description": "Connected Gmail or SMTP/IMAP sending mailbox.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "display_name": { "type": "string", "maxLength": 120 },
+        "provider": { "type": "string", "enum": ["gmail_api", "smtp"] },
+        "provider_label": { "type": "string", "maxLength": 40 },
+        "smtp_host": { "type": "string", "maxLength": 255 },
+        "smtp_port": { "type": "integer" },
+        "imap_host": { "type": "string", "maxLength": 255 },
+        "imap_port": { "type": "integer" },
+        "daily_limit": { "type": "integer" },
+        "warmup_enabled": { "type": "boolean" },
+        "warmup_daily_cap": { "type": "integer" },
+        "sent_today": { "type": "integer" },
+        "sent_today_date": { "type": "string", "maxLength": 16 },
+        "signature": { "type": "string", "maxLength": 1500 },
+        "status": { "type": "string", "enum": ["active", "paused", "error"] },
+        "has_credentials": { "type": "boolean" },
+        "last_synced_at": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "email", "provider", "daily_limit", "status", "createdAt", "updatedAt"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Cold outreach campaign with up to 8 follow-up steps.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": { "type": "string", "enum": ["draft", "running", "paused", "completed"] },
+        "account_ids": { "type": "array" },
+        "subject": { "type": "string", "maxLength": 300 },
+        "body": { "type": "string", "maxLength": 15000 },
+        "attachments": { "type": "array" },
+        "follow_ups": { "type": "array" },
+        "daily_limit": { "type": "integer" },
+        "sent_today": { "type": "integer" },
+        "sent_today_date": { "type": "string", "maxLength": 16 },
+        "behavior": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "status", "account_ids", "subject", "body", "daily_limit", "createdAt", "updatedAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Prospect contact record with MX verification and tags.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "first_name": { "type": "string", "maxLength": 100 },
+        "last_name": { "type": "string", "maxLength": 100 },
+        "company": { "type": "string", "maxLength": 160 },
+        "designation": { "type": "string", "maxLength": 160 },
+        "industry": { "type": "string", "maxLength": 120 },
+        "tags": { "type": "array" },
+        "status": { "type": "string", "enum": ["new", "contacted", "replied", "interested", "not_interested", "bounced", "unsubscribed"] },
+        "email_check": { "type": "string", "enum": ["valid", "risky", "invalid", "unchecked"] },
+        "email_check_reason": { "type": "string", "maxLength": 240 },
+        "email_checked_at": { "type": "string", "maxLength": 40 },
+        "ai_line": { "type": "string", "maxLength": 600 },
+        "custom_fields": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "email", "status", "email_check", "createdAt", "updatedAt"]
+    },
+    "CampaignLead": {
+      "title": "CampaignLead",
+      "description": "Enrollment state of a lead inside a campaign sequence.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "campaign_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "lead_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "account_id": { "type": "string", "maxLength": 128 },
+        "current_step": { "type": "integer" },
+        "status": { "type": "string", "enum": ["pending", "active", "replied", "completed", "bounced", "unsubscribed", "paused"] },
+        "last_sent_at": { "type": "string", "maxLength": 40 },
+        "next_send_at": { "type": "string", "maxLength": 40 },
+        "sequence_stopped_at": { "type": "string", "maxLength": 40 },
+        "stop_reason": { "type": "string", "maxLength": 120 },
+        "error": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "campaign_id", "lead_id", "current_step", "status", "createdAt", "updatedAt"]
+    },
+    "EmailMessage": {
+      "title": "EmailMessage",
+      "description": "Outbound or inbound email message belonging to a thread.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "thread_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "campaign_id": { "type": "string", "maxLength": 128 },
+        "lead_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "account_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "direction": { "type": "string", "enum": ["outbound", "inbound"] },
+        "step": { "type": "integer" },
+        "is_manual": { "type": "boolean" },
+        "from_email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "to_email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "subject": { "type": "string", "maxLength": 400 },
+        "body": { "type": "string", "maxLength": 25000 },
+        "attachments": { "type": "array" },
+        "message_id_header": { "type": "string", "maxLength": 255 },
+        "in_reply_to": { "type": "string", "maxLength": 255 },
+        "category": { "type": "string", "maxLength": 60 },
+        "sent_at_iso": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "thread_id", "lead_id", "account_id", "direction", "from_email", "to_email", "subject", "body", "createdAt"]
+    },
+    "ConversationState": {
+      "title": "ConversationState",
+      "description": "Inbox thread open/closed state and last activity timestamp.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "thread_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "lead_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "campaign_id": { "type": "string", "maxLength": 128 },
+        "account_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "last_message_at": { "type": "string", "maxLength": 40 },
+        "closed_at": { "type": "string", "maxLength": 40 },
+        "auto_closed": { "type": "boolean" },
+        "unread": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "thread_id", "lead_id", "account_id", "status", "last_message_at", "createdAt", "updatedAt"]
+    },
+    "Template": {
+      "title": "Template",
+      "description": "Reusable cold email, follow-up, or reply template.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "kind": { "type": "string", "enum": ["email", "follow_up", "reply"] },
+        "subject": { "type": "string", "maxLength": 300 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 15000 },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "kind", "body", "createdAt", "updatedAt"]
+    },
+    "Suppression": {
+      "title": "Suppression",
+      "description": "Global opt-out and bounce blocklist entry.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "reason": { "type": "string", "enum": ["unsubscribed", "bounced", "manual"] },
+        "source": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "email", "reason", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserSettings" },
+      "description": "Per-user outreach settings and automation rules."
+    },
+    "/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/SendingAccount" },
+      "description": "User-owned sending mailboxes (Gmail API and SMTP/IMAP)."
+    },
+    "/campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/Campaign" },
+      "description": "User-owned email outreach campaigns and sequences."
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/Lead" },
+      "description": "User-owned prospect leads."
+    },
+    "/campaign_leads/{enrollmentId}": {
+      "schema": { "$ref": "#/entities/CampaignLead" },
+      "description": "Junction records tracking lead progress through a campaign."
+    },
+    "/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/EmailMessage" },
+      "description": "Outbound and inbound email messages."
+    },
+    "/conversations/{threadId}": {
+      "schema": { "$ref": "#/entities/ConversationState" },
+      "description": "Unified Inbox conversation state."
+    },
+    "/templates/{templateId}": {
+      "schema": { "$ref": "#/entities/Template" },
+      "description": "Reusable email templates."
+    },
+    "/suppressions/{suppressionId}": {
+      "schema": { "$ref": "#/entities/Suppression" },
+      "description": "Global unsubscribe and bounce suppressions."
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "workspace_auth": null,
+  "settings": {
+    "send_start_hour": 9,
+    "send_end_hour": 18,
+    "send_weekdays_only": true,
+    "time_zone": "UTC",
+    "auto_close_days": 14,
+    "ai_context": "",
+    "default_signature": "",
+    "default_follow_up_delays": [
+      3,
+      5,
+      7
+    ],
+    "default_behavior": {
+      "out_of_office": "continue",
+      "later_check_in": false,
+      "later_delay_days": 21,
+      "later_body": "Hi {{first_name|there}}, circling back as you suggested — is now a better time to talk?",
+      "stop_on_reply": true,
+      "stop_on_bounce": true,
+      "stop_on_unsubscribe": true
+    },
+    "tracking_pixels_disabled": true,
+    "click_tracking_disabled": true
+  },
+  "accounts": [],
+  "campaigns": [],
+  "leads": [],
+  "campaign_leads": [],
+  "messages": [],
+  "conversations": [],
+  "templates": [],
+  "suppressions": [],
+  "account_daily_dates": {},
+  "campaign_daily_dates": {}
+}
